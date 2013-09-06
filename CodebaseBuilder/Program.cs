@@ -82,7 +82,7 @@ namespace CodebaseBuilder
                     continue;
                 }
 
-                ProcessPath(TempPath);
+                ProcessPath(TempPath, true);
 
                 Console.WriteLine("Indexed {0}", f.Name);
             }
@@ -92,28 +92,47 @@ namespace CodebaseBuilder
         {
             foreach (FileInfo f in processFiles)
             {
-                ProcessPath(f.FullName);
+                ProcessPath(f.FullName, false);
             }
         }
 
-        static void ProcessPath(string TempPath)
+        static void ProcessPath(string TempPath, bool DeleteAfterUse)
         {
             FileInfo tf = new FileInfo(TempPath);
-            FileStream fStr = tf.Open(FileMode.Open);
+
+            if (!tf.Exists)
+            {
+                return;
+            }
+
+            FileStream fStr = tf.Open(FileMode.Open, FileAccess.Read);
             TextReader tr = new StreamReader(fStr) as TextReader;
             string Content = tr.ReadToEnd();
 
-            Regex rx = new Regex("d:\\\\[\\\\A-Za-z0-9\\.]+");
+            Regex rx = new Regex("[Dd]:\\\\[\\\\A-Za-z0-9\\.]+");
             MatchCollection mc = rx.Matches(Content);
 
             foreach (Match m in mc)
             {
-                Paths.Add(m.Value);
+                string path = m.Value.ToLower();
+                string postPath = "";
+                postPath = Regex.Replace(path, "[A-Za-z0-9\\.]+\\\\\\.\\.\\\\", "\\");
+                postPath = postPath.Replace("\\\\", "\\");
+                while (path != postPath)
+                {
+                    path = postPath;
+                    postPath = Regex.Replace(path, "[A-Za-z0-9\\.]+\\\\\\.\\.\\\\", "\\");
+                    postPath = postPath.Replace("\\\\", "\\");
+                }
+                Paths.Add(postPath);
             }
 
             tr.Close();
             fStr.Close();
-            tf.Delete();
+            if (DeleteAfterUse)
+            {
+                tf.Delete();
+            }
         }
     }
 }
