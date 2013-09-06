@@ -28,11 +28,24 @@ namespace CodebaseBuilder
                 return;
             }
 
-            FileInfo[] extractableFiles = new DirectoryInfo(i386Path).GetFiles("*.ex_");
-            ProcessFiles(extractableFiles);
+            DirectoryInfo i386Dir = new DirectoryInfo(i386Path);
 
-            extractableFiles = new DirectoryInfo(i386Path).GetFiles("*.dl_");
-            ProcessFiles(extractableFiles);
+            FileInfo[] processFiles = i386Dir.GetFiles("*.ex_");
+            ExtractFiles(processFiles);
+            processFiles = i386Dir.GetFiles("*.dl_");
+            ExtractFiles(processFiles);
+            processFiles = i386Dir.GetFiles("*.sy_");
+            ExtractFiles(processFiles);
+            processFiles = i386Dir.GetFiles("*.oc_");
+            ExtractFiles(processFiles);
+
+
+            processFiles = i386Dir.GetFiles("*.bin");
+            ProcessFiles(processFiles);
+            processFiles = i386Dir.GetFiles("*.dll");
+            ProcessFiles(processFiles);
+            processFiles = i386Dir.GetFiles("*.exe");
+            ProcessFiles(processFiles);
 
             List<string> SortedUniquePaths = Paths.Distinct().OrderBy(s => s).ToList();
 
@@ -51,7 +64,7 @@ namespace CodebaseBuilder
             Console.ReadKey();
         }
 
-        static void ProcessFiles(FileInfo[] extractableFiles)
+        static void ExtractFiles(FileInfo[] extractableFiles)
         {
             foreach (FileInfo f in extractableFiles)
             {
@@ -59,6 +72,7 @@ namespace CodebaseBuilder
                 Process p = new Process();
                 p.StartInfo.FileName = @"C:\Windows\System32\expand.exe";
                 p.StartInfo.Arguments = string.Format("\"{0}\" \"{1}\"", f.FullName, TempPath);
+                p.StartInfo.WindowStyle = ProcessWindowStyle.Hidden;
 
                 p.Start();
 
@@ -68,25 +82,38 @@ namespace CodebaseBuilder
                     continue;
                 }
 
-                FileInfo tf = new FileInfo(TempPath);
-                FileStream fStr = tf.Open(FileMode.Open);
-                TextReader tr = new StreamReader(fStr) as TextReader;
-                string Content = tr.ReadToEnd();
-
-                Regex rx = new Regex("d:\\\\[\\\\A-Za-z0-9\\.]+");
-                MatchCollection mc = rx.Matches(Content);
-
-                foreach (Match m in mc)
-                {
-                    Paths.Add(m.Value);
-                }
-
-                tr.Close();
-                fStr.Close();
-                tf.Delete();
+                ProcessPath(TempPath);
 
                 Console.WriteLine("Indexed {0}", f.Name);
             }
+        }
+
+        static void ProcessFiles(FileInfo[] processFiles)
+        {
+            foreach (FileInfo f in processFiles)
+            {
+                ProcessPath(f.FullName);
+            }
+        }
+
+        static void ProcessPath(string TempPath)
+        {
+            FileInfo tf = new FileInfo(TempPath);
+            FileStream fStr = tf.Open(FileMode.Open);
+            TextReader tr = new StreamReader(fStr) as TextReader;
+            string Content = tr.ReadToEnd();
+
+            Regex rx = new Regex("d:\\\\[\\\\A-Za-z0-9\\.]+");
+            MatchCollection mc = rx.Matches(Content);
+
+            foreach (Match m in mc)
+            {
+                Paths.Add(m.Value);
+            }
+
+            tr.Close();
+            fStr.Close();
+            tf.Delete();
         }
     }
 }
