@@ -7,132 +7,133 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 
-namespace CodebaseBuilder
-{
-    static class Program
-    {
-        static string i386Path;
-        static string WorkingPath;
+namespace CodebaseBuilder {
+	static class Program {
+		static string SearchPath;
+		static string WorkingPath;
+		static string Scope = "[D-Fd-f]";
 
-        static List<string> Paths;
+		static List<string> Paths;
 
-        static void Main(string[] args)
-        {
-            Paths = new List<string>();
-            i386Path = args[0];
-            WorkingPath = Environment.CurrentDirectory;
+		static void Main(string[] args) {
+			Paths = new List<string>();
+			SearchPath = args[0];
+			WorkingPath = Environment.CurrentDirectory;
 
-            if (!Directory.Exists(i386Path))
-            {
-                Console.WriteLine("Incorrect Path.");
-                return;
-            }
+			if (!Directory.Exists(SearchPath)) {
+				Console.WriteLine("Incorrect Path.");
+				return;
+			}
 
-            DirectoryInfo i386Dir = new DirectoryInfo(i386Path);
+			ProcessDirectoriesRecursively(new DirectoryInfo(SearchPath));
 
-            FileInfo[] processFiles = i386Dir.GetFiles("*.ex_");
-            ExtractFiles(processFiles);
-            processFiles = i386Dir.GetFiles("*.dl_");
-            ExtractFiles(processFiles);
-            processFiles = i386Dir.GetFiles("*.sy_");
-            ExtractFiles(processFiles);
-            processFiles = i386Dir.GetFiles("*.oc_");
-            ExtractFiles(processFiles);
+			List<string> SortedUniquePaths = Paths.Distinct().OrderBy(s => s).ToList();
 
+			TextWriter tw = new StreamWriter("path.txt", false, Encoding.UTF8);
 
-            processFiles = i386Dir.GetFiles("*.bin");
-            ProcessFiles(processFiles);
-            processFiles = i386Dir.GetFiles("*.dll");
-            ProcessFiles(processFiles);
-            processFiles = i386Dir.GetFiles("*.exe");
-            ProcessFiles(processFiles);
+			foreach (string path in SortedUniquePaths) {
+				tw.WriteLine(path);
+			}
 
-            List<string> SortedUniquePaths = Paths.Distinct().OrderBy(s => s).ToList();
+			tw.Flush();
+			tw.Close();
 
-            TextWriter tw = new StreamWriter("path.txt", false, Encoding.UTF8);
+			Console.WriteLine("Path File Written");
+			Console.ReadKey();
+		}
 
-            foreach (string path in SortedUniquePaths)
-            {
-                tw.WriteLine(path);
-            }
+		static void ProcessDirectoriesRecursively(DirectoryInfo directory) {
+			Console.WriteLine("Traversing " + directory.Name);
 
-            tw.Flush();
-            tw.Close();
+			// Gather and process packaged files 
+			FileInfo[] processFiles = directory.GetFiles("*.ex_");
+			ExtractFiles(processFiles);
+			processFiles = directory.GetFiles("*.dl_");
+			ExtractFiles(processFiles);
+			processFiles = directory.GetFiles("*.sy_");
+			ExtractFiles(processFiles);
+			processFiles = directory.GetFiles("*.oc_");
+			ExtractFiles(processFiles);
 
-            Console.WriteLine("Path File Written");
+			// Gather and process unpackaged files
+			processFiles = directory.GetFiles("*.bin");
+			ProcessFiles(processFiles);
+			processFiles = directory.GetFiles("*.dll");
+			ProcessFiles(processFiles);
+			processFiles = directory.GetFiles("*.exe");
+			ProcessFiles(processFiles);
+			processFiles = directory.GetFiles("*.scr");
+			ProcessFiles(processFiles);
 
-            Console.ReadKey();
-        }
+			foreach (DirectoryInfo dirInfo in directory.GetDirectories()) {
+				ProcessDirectoriesRecursively(dirInfo);
+			}
+		}
 
-        static void ExtractFiles(FileInfo[] extractableFiles)
-        {
-            foreach (FileInfo f in extractableFiles)
-            {
-                string TempPath = Path.Combine(WorkingPath, f.Name.Substring(0, f.Name.Length - f.Extension.Length) + ".bin");
-                Process p = new Process();
-                p.StartInfo.FileName = @"C:\Windows\System32\expand.exe";
-                p.StartInfo.Arguments = string.Format("\"{0}\" \"{1}\"", f.FullName, TempPath);
-                p.StartInfo.WindowStyle = ProcessWindowStyle.Hidden;
+		static void ExtractFiles(FileInfo[] extractableFiles) {
+			foreach (FileInfo f in extractableFiles) {
+				string TempPath = Path.Combine(WorkingPath, f.Name.Substring(0, f.Name.Length - f.Extension.Length) + ".bin");
+				Process p = new Process();
+				p.StartInfo.FileName = @"C:\Windows\System32\expand.exe";
+				p.StartInfo.Arguments = string.Format("\"{0}\" \"{1}\"", f.FullName, TempPath);
+				p.StartInfo.WindowStyle = ProcessWindowStyle.Hidden;
 
-                p.Start();
+				p.Start();
 
-                while (!p.HasExited)
-                {
-                    Thread.Sleep(10);
-                    continue;
-                }
+				while (!p.HasExited) {
+					Thread.Sleep(10);
+					continue;
+				}
 
-                ProcessPath(TempPath, true);
+				ProcessPath(TempPath, true);
 
-                Console.WriteLine("Indexed {0}", f.Name);
-            }
-        }
+				Console.WriteLine("Indexed {0}", f.Name);
+			}
+		}
 
-        static void ProcessFiles(FileInfo[] processFiles)
-        {
-            foreach (FileInfo f in processFiles)
-            {
-                ProcessPath(f.FullName, false);
-            }
-        }
+		static void ProcessFiles(FileInfo[] processFiles) {
+			foreach (FileInfo f in processFiles) {
+				ProcessPath(f.FullName, false);
+			}
+		}
 
-        static void ProcessPath(string TempPath, bool DeleteAfterUse)
-        {
-            FileInfo tf = new FileInfo(TempPath);
+		static void ProcessPath(string TempPath, bool DeleteAfterUse) {
+			FileInfo tf = new FileInfo(TempPath);
 
-            if (!tf.Exists)
-            {
-                return;
-            }
+			if (!tf.Exists) {
+				return;
+			}
 
-            FileStream fStr = tf.Open(FileMode.Open, FileAccess.Read);
-            TextReader tr = new StreamReader(fStr) as TextReader;
-            string Content = tr.ReadToEnd();
+			FileStream fStr = tf.Open(FileMode.Open, FileAccess.Read);
+			TextReader tr = new StreamReader(fStr) as TextReader;
+			string Content = tr.ReadToEnd();
 
-            Regex rx = new Regex("[Dd]:\\\\[\\\\A-Za-z0-9\\.]+");
-            MatchCollection mc = rx.Matches(Content);
+			// Match any path in content
+			Regex rx = new Regex(Scope + @":\\[A-Za-z0-9.\\]+");
+			MatchCollection mc = rx.Matches(Content);
 
-            foreach (Match m in mc)
-            {
-                string path = m.Value.ToLower();
-                string postPath = "";
-                postPath = Regex.Replace(path, "[A-Za-z0-9\\.]+\\\\\\.\\.\\\\", "\\");
-                postPath = postPath.Replace("\\\\", "\\");
-                while (path != postPath)
-                {
-                    path = postPath;
-                    postPath = Regex.Replace(path, "[A-Za-z0-9\\.]+\\\\\\.\\.\\\\", "\\");
-                    postPath = postPath.Replace("\\\\", "\\");
-                }
-                Paths.Add(postPath);
-            }
+			// Remove trailing "\..\" slashes
+			foreach (Match m in mc) {
+				string path = m.Value.ToLower();
+				string postPath = "";
+				postPath = Regex.Replace(path, "[A-Za-z0-9\\.]+\\\\\\.\\.\\\\", "\\");
+				postPath = postPath.Replace("\\\\", "\\");
+				while (path != postPath) // Repeat until no more slashes can be replaced 
+				{
+					path = postPath;
+					postPath = Regex.Replace(path, "[A-Za-z0-9\\.]+\\\\\\.\\.\\\\", "\\");
+					postPath = postPath.Replace("\\\\", "\\");
+				}
+				Paths.Add(postPath);
+			}
 
-            tr.Close();
-            fStr.Close();
-            if (DeleteAfterUse)
-            {
-                tf.Delete();
-            }
-        }
-    }
+			tr.Close();
+			fStr.Close();
+
+			// Delete any extracted files
+			if (DeleteAfterUse) {
+				tf.Delete();
+			}
+		}
+	}
 }
