@@ -45,29 +45,37 @@ namespace CodebaseBuilder {
 		static void ProcessDirectoriesRecursively(DirectoryInfo directory) {
 			Console.WriteLine("Traversing " + directory.Name);
 
-			// Gather and process packaged files 
-			FileInfo[] processFiles = directory.GetFiles("*.ex_");
-			ExtractFiles(processFiles);
-			processFiles = directory.GetFiles("*.dl_");
-			ExtractFiles(processFiles);
-			processFiles = directory.GetFiles("*.sy_");
-			ExtractFiles(processFiles);
-			processFiles = directory.GetFiles("*.oc_");
-			ExtractFiles(processFiles);
+			try {
+				// Gather and process packaged files 
+				FileInfo[] processFiles = directory.GetFiles("*.ex_");
+				ExtractFiles(processFiles);
+				processFiles = directory.GetFiles("*.dl_");
+				ExtractFiles(processFiles);
+				processFiles = directory.GetFiles("*.sy_");
+				ExtractFiles(processFiles);
+				processFiles = directory.GetFiles("*.oc_");
+				ExtractFiles(processFiles);
 
-			// Gather and process unpackaged files
-			processFiles = directory.GetFiles("*.bin");
-			ProcessFiles(processFiles);
-			processFiles = directory.GetFiles("*.dll");
-			ProcessFiles(processFiles);
-			processFiles = directory.GetFiles("*.exe");
-			ProcessFiles(processFiles);
-			processFiles = directory.GetFiles("*.scr");
-			ProcessFiles(processFiles);
+				// Gather and process unpackaged files
+				processFiles = directory.GetFiles("*.bin");
+				ProcessFiles(processFiles);
+				processFiles = directory.GetFiles("*.dll");
+				ProcessFiles(processFiles);
+				processFiles = directory.GetFiles("*.exe");
+				ProcessFiles(processFiles);
+				processFiles = directory.GetFiles("*.scr");
+				ProcessFiles(processFiles);
 
-			foreach (DirectoryInfo dirInfo in directory.GetDirectories()) {
-				ProcessDirectoriesRecursively(dirInfo);
+				foreach (DirectoryInfo dirInfo in directory.GetDirectories()) {
+					ProcessDirectoriesRecursively(dirInfo);
+				}
+
+			} catch(UnauthorizedAccessException ex) {
+				Console.WriteLine("Unable to traverse: unauthorized access");
 			}
+			
+
+			
 		}
 
 		static void ExtractFiles(FileInfo[] extractableFiles) {
